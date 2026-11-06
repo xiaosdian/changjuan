@@ -5,16 +5,21 @@ on:
 
 jobs:
   build:
-    runs-on: macos-15
+    runs-on: xcode-27
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Select Xcode 27.1
+      - name: Check Xcode
         run: |
-          sudo xcode-select -s /Applications/Xcode_27.1.app/Contents/Developer
+          echo "=== Xcode ==="
           xcodebuild -version
+
+          echo "=== Developer Directory ==="
+          xcode-select -p
+
+          echo "=== SDKs ==="
           xcodebuild -showsdks
 
       - name: Show project information
@@ -40,28 +45,42 @@ jobs:
             DEVELOPMENT_TEAM="" \
             clean build
 
-      - name: Find built app
+      - name: Find LongShot.app
         run: |
+          echo "=== Searching for LongShot.app ==="
+
           find build/DerivedData \
+            -type d \
             -name "LongShot.app" \
             -print
 
       - name: Package IPA
         run: |
           APP_PATH=$(find build/DerivedData \
+            -type d \
             -name "LongShot.app" \
             -print -quit)
 
           if [ -z "$APP_PATH" ]; then
-            echo "LongShot.app not found!"
+            echo "::error::LongShot.app not found"
             exit 1
           fi
 
+          echo "Found app:"
+          echo "$APP_PATH"
+
           mkdir -p build/Payload
-          cp -R "$APP_PATH" build/Payload/LongShot.app
+
+          cp -R "$APP_PATH" \
+            build/Payload/LongShot.app
 
           cd build
+
           zip -r LongShot-unsigned.ipa Payload
+
+          echo ""
+          echo "=== IPA ==="
+          ls -lh LongShot-unsigned.ipa
 
       - name: Upload IPA
         uses: actions/upload-artifact@v4
