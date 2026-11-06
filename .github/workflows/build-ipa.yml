@@ -1,0 +1,71 @@
+name: Build LongShot IPA
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Select Xcode 27.1
+        run: |
+          sudo xcode-select -s /Applications/Xcode_27.1.app/Contents/Developer
+          xcodebuild -version
+          xcodebuild -showsdks
+
+      - name: Show project information
+        run: |
+          xcodebuild \
+            -project LongShot.xcodeproj \
+            -list
+
+      - name: Build unsigned app
+        run: |
+          mkdir -p build
+
+          xcodebuild \
+            -project LongShot.xcodeproj \
+            -scheme LongShot \
+            -configuration Release \
+            -sdk iphoneos27.1 \
+            -destination 'generic/platform=iOS' \
+            -derivedDataPath build/DerivedData \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            DEVELOPMENT_TEAM="" \
+            clean build
+
+      - name: Find built app
+        run: |
+          find build/DerivedData \
+            -name "LongShot.app" \
+            -print
+
+      - name: Package IPA
+        run: |
+          APP_PATH=$(find build/DerivedData \
+            -name "LongShot.app" \
+            -print -quit)
+
+          if [ -z "$APP_PATH" ]; then
+            echo "LongShot.app not found!"
+            exit 1
+          fi
+
+          mkdir -p build/Payload
+          cp -R "$APP_PATH" build/Payload/LongShot.app
+
+          cd build
+          zip -r LongShot-unsigned.ipa Payload
+
+      - name: Upload IPA
+        uses: actions/upload-artifact@v4
+        with:
+          name: LongShot-unsigned-IPA
+          path: build/LongShot-unsigned.ipa
+          if-no-files-found: error
